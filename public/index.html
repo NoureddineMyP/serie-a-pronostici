@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Serie A Pronostici</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap"
+    rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: '#0d0f14', surface: '#13161e', surface2: '#1a1e2a', border: '#252836',
+            neon: '#00ff88', yellow: '#ffd600', orange: '#ff7b00', red: '#ff2d55', purple: '#b06cff',
+            text1: '#f0f2ff', text2: '#7a8299', text3: '#3a4055',
+          },
+          fontFamily: {
+            barlow: ['Barlow', 'sans-serif'],
+            condensed: ['Barlow Condensed', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background:
+        radial-gradient(ellipse 55% 45% at 5% 15%, rgba(0, 255, 136, 0.05) 0%, transparent 65%),
+        radial-gradient(ellipse 45% 55% at 95% 85%, rgba(176, 108, 255, 0.05) 0%, transparent 65%);
+    }
+
+    .logo-half {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 50%
+    }
+
+    .logo-left {
+      left: 0
+    }
+
+    .logo-right {
+      right: 0
+    }
+
+    .logo-abbr {
+      position: relative;
+      z-index: 2;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .38rem;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, .7);
+      letter-spacing: -.02em
+    }
+
+    .zone-cl {
+      border-left: 2px solid #00ff88 !important
+    }
+
+    .zone-el {
+      border-left: 2px solid #ffd600 !important
+    }
+
+    .zone-conf {
+      border-left: 2px solid #ff7b00 !important
+    }
+
+    .zone-rel {
+      border-left: 2px solid #ff2d55 !important
+    }
+
+    .no-zone {
+      border-left: 2px solid transparent
+    }
+
+    .team-row {
+      cursor: grab;
+      animation: fadeUp .18s ease both
+    }
+
+    .team-row.dragging {
+      opacity: .18;
+      cursor: grabbing
+    }
+
+    .team-row.drag-over {
+      background: rgba(0, 255, 136, 0.05)
+    }
+
+    .real-row {
+      animation: fadeUp .18s ease both
+    }
+
+    .rs-4 {
+      color: #00ff88;
+      text-shadow: 0 0 8px rgba(0, 255, 136, .4)
+    }
+
+    .rs-3 {
+      color: #55ffaa
+    }
+
+    .rs-2 {
+      color: #ffd600
+    }
+
+    .rs-1 {
+      color: #ff7b00
+    }
+
+    .rs-b {
+      color: #b06cff
+    }
+
+    .rs-0 {
+      color: #3a4055
+    }
+
+    .du {
+      color: #00ff88
+    }
+
+    .dd {
+      color: #ff2d55
+    }
+
+    .ds {
+      color: transparent
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(4px)
+      }
+
+      to {
+        opacity: 1;
+        transform: none
+      }
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    .spin {
+      animation: spin .7s linear infinite;
+      display: inline-block
+    }
+
+    @keyframes pulseGlow {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 rgba(0, 255, 136, 0)
+      }
+
+      50% {
+        box-shadow: 0 0 14px rgba(0, 255, 136, .3)
+      }
+    }
+
+    .live-pulse {
+      animation: pulseGlow 2s ease-in-out infinite
+    }
+
+    ::-webkit-scrollbar {
+      width: 5px
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #252836;
+      border-radius: 3px
+    }
+  </style>
+</head>
+
+<body class="bg-bg text-text1 font-barlow min-h-screen overflow-x-hidden">
+
+  <!-- HEADER -->
+  <header class="relative z-10 px-6 pt-8 pb-5 text-center border-b border-border">
+    <div class="flex items-baseline justify-center gap-3 mb-2">
+      <span class="font-condensed font-black uppercase tracking-tight text-5xl md:text-6xl">Serie A</span>
+      <span
+        class="font-condensed font-semibold uppercase tracking-widest text-xl md:text-2xl text-text2">Pronostici</span>
+    </div>
+    <div class="flex items-center justify-center gap-2 flex-wrap">
+      <span
+        class="font-mono text-[.58rem] tracking-[.14em] uppercase text-neon bg-neon/10 border border-neon/20 rounded px-2 py-0.5">⚽
+        2024/25</span>
+      <span id="giornata-label"
+        class="font-mono text-[.58rem] tracking-[.1em] text-text2 border border-border rounded px-2 py-0.5">Giornata
+        —</span>
+      <span id="api-badge"
+        class="font-mono text-[.58rem] tracking-[.1em] border rounded px-2 py-0.5 border-text3 text-text3 transition-all duration-300">●
+        offline</span>
+    </div>
+  </header>
+
+  <!-- LEGEND -->
+  <div
+    class="relative z-10 flex flex-wrap gap-x-5 gap-y-1.5 justify-center px-4 py-2 border-b border-border font-mono text-[.62rem] tracking-[.08em] uppercase text-text2">
+    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-neon"></span>Champions (1–4) ★</span>
+    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-yellow"></span>Europa League (5) ★</span>
+    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-orange"></span>Conference (6) ★</span>
+    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-red"></span>Retrocessione (18–20) ★</span>
+    <span class="flex items-center gap-1.5 text-text3">★ bonus zona se esatta</span>
+  </div>
+
+  <!-- SCORE RULES BANNER -->
+  <div class="relative z-10 flex items-center justify-center gap-4 px-4 py-2 bg-surface/50 border-b border-border font-mono text-[.52rem] tracking-[.08em] uppercase text-text3">
+    <span>Pos. esatta = <span class="text-neon font-bold">3pt</span></span>
+    <span class="text-border">|</span>
+    <span>Pos. ±1 = <span class="text-yellow font-bold">2pt</span></span>
+    <span class="text-border">|</span>
+    <span>Zona EL o Retro esatta = <span class="text-purple font-bold">+1pt</span></span>
+  </div>
+
+  <!-- SCORE BANNER -->
+  <div class="relative z-10 flex items-center justify-center gap-10 px-6 py-4 bg-surface border-b border-border">
+    <div class="flex flex-col items-center gap-0.5">
+      <div id="score-label" class="font-mono text-[.58rem] tracking-[.14em] uppercase text-text2">Punteggio</div>
+      <div id="score-num" class="font-condensed font-black text-[3.4rem] leading-none tracking-tighter text-neon">—
+      </div>
+      <div class="font-mono text-[.56rem] tracking-[.06em] text-text3">/ 60 pt massimo</div>
+    </div>
+    <div class="flex gap-6 font-mono text-[.62rem]">
+      <div class="flex flex-col items-center gap-0.5">
+        <span id="sb-pos" class="font-bold text-[.95rem] text-neon">—</span>
+        <span class="text-[.5rem] tracking-[.08em] uppercase text-text3">posizione</span>
+      </div>
+      <div class="flex flex-col items-center gap-0.5">
+        <span id="sb-zone" class="font-bold text-[.95rem] text-purple">—</span>
+        <span class="text-[.5rem] tracking-[.08em] uppercase text-text3">zona ★</span>
+      </div>
+      <div class="flex flex-col items-center gap-0.5">
+        <span id="sb-exact" class="font-bold text-[.95rem] text-yellow">—</span>
+        <span class="text-[.5rem] tracking-[.08em] uppercase text-text3">esatte</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLAYER TABS -->
+  <div class="relative z-10 flex items-center justify-center gap-2 px-4 py-3 border-b border-border">
+    <button id="btn-p1" onclick="switchPlayer(0)"
+      class="font-condensed font-bold tracking-widest uppercase text-sm px-6 py-1.5 rounded-md border transition-all duration-150 cursor-pointer">Ana</button>
+    <span class="text-text3 text-sm">vs</span>
+    <button id="btn-p2" onclick="switchPlayer(1)"
+      class="font-condensed font-bold tracking-widest uppercase text-sm px-6 py-1.5 rounded-md border transition-all duration-150 cursor-pointer">Adil</button>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="relative z-10 grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] max-w-[900px] mx-auto px-2 pb-28">
+
+    <!-- LEFT: Prediction -->
+    <div>
+      <div class="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
+        <span id="col-pred-title"
+          class="font-condensed font-bold tracking-[.12em] uppercase text-[.82rem] text-neon">Previsione Ana</span>
+        <span class="font-mono text-[.52rem] text-text3">trascina ⠿</span>
+      </div>
+      <div class="grid px-4 py-1.5 font-mono text-[.52rem] tracking-[.1em] uppercase text-text3 border-b border-border"
+        style="grid-template-columns:44px 1fr 38px 52px">
+        <div>#/Δ</div>
+        <div>Squadra</div>
+        <div class="text-center">Pts</div>
+        <div class="text-center">Score</div>
+      </div>
+      <div id="col-pred">
+        <div class="px-4 py-8 flex flex-col items-center gap-3">
+          <div class="spin text-neon text-xl">⟳</div>
+          <span class="font-mono text-[.6rem] text-text3 tracking-widest uppercase">Caricamento…</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- DIVIDER -->
+    <div class="hidden md:block bg-border mx-1"></div>
+
+    <!-- RIGHT: Real standings -->
+    <div>
+      <div class="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
+        <span class="font-condensed font-bold tracking-[.12em] uppercase text-[.82rem] text-text2">Classifica
+          Reale</span>
+        <span id="last-updated" class="font-mono text-[.48rem] text-text3"></span>
+      </div>
+      <div class="grid px-4 py-1.5 font-mono text-[.52rem] tracking-[.1em] uppercase text-text3 border-b border-border"
+        style="grid-template-columns:36px 1fr 38px 34px">
+        <div>#</div>
+        <div>Squadra</div>
+        <div class="text-center">Pts</div>
+        <div class="text-center">G</div>
+      </div>
+      <div id="loading-real" class="px-4 py-8 flex flex-col items-center gap-3">
+        <div class="spin text-neon text-xl">⟳</div>
+        <span class="font-mono text-[.6rem] text-text3 tracking-widest uppercase">Caricamento classifica…</span>
+      </div>
+      <div id="col-real" class="hidden"></div>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="fixed bottom-5 right-5 flex gap-2 z-50">
+    <button id="btn-refresh" onclick="fetchStandings()"
+      class="live-pulse font-mono text-[.58rem] tracking-[.08em] uppercase rounded-md px-3 py-1.5 border border-neon/20 bg-neon/5 text-neon hover:bg-neon/15 backdrop-blur-md transition-all duration-150 cursor-pointer">
+      ⟳ aggiorna
+    </button>
+    <button onclick="resetCurrent()"
+      class="font-mono text-[.58rem] tracking-[.08em] uppercase rounded-md px-3 py-1.5 border border-red/20 bg-red/5 text-red hover:bg-red/15 backdrop-blur-md transition-all duration-150 cursor-pointer">
+      ↺ reset
+    </button>
+  </div>
+
+  <!-- TOAST -->
+  <div class="fixed bottom-16 left-1/2 -translate-x-1/2 z-[999] pointer-events-none">
+    <div id="toast"
+      class="border rounded font-mono text-[.6rem] tracking-[.06em] px-3 py-1.5 opacity-0 transition-opacity duration-300 whitespace-nowrap backdrop-blur-xl"
+      style="background:rgba(13,15,20,.92)"></div>
+  </div>
+
+  <script>
+    // ── CONFIG ────────────────────────────────────────────────────────────────────
+    // API key is now server-side in /api/standings.js — no key exposed here!
+    const API_URL = '/api/standings';
+
+    // ── TEAM COLOR MAP ─────────────────────────────────────────────────────────────
+    const TEAM_META = {
+      'FC Internazionale Milano': { abbr: 'INT', color: '#0057A3', color2: '#000000' },
+      'AC Milan': { abbr: 'MIL', color: '#FB090B', color2: '#000000' },
+      'SSC Napoli': { abbr: 'NAP', color: '#008CFF', color2: '#FFFFFF' },
+      'Como 1907': { abbr: 'COM', color: '#003A8F', color2: '#FFFFFF' },
+      'AS Roma': { abbr: 'ROM', color: '#970A2C', color2: '#FBBA00' },
+      'Juventus FC': { abbr: 'JUV', color: '#000000', color2: '#FFFFFF' },
+      'Atalanta BC': { abbr: 'ATA', color: '#0055A4', color2: '#000000' },
+      'Bologna FC 1909': { abbr: 'BOL', color: '#9F1F33', color2: '#1D2A5B' },
+      'US Sassuolo Calcio': { abbr: 'SAS', color: '#00A651', color2: '#000000' },
+      'SS Lazio': { abbr: 'LAZ', color: '#85D8F8', color2: '#FFFFFF' },
+      'Udinese Calcio': { abbr: 'UDI', color: '#000000', color2: '#FFFFFF' },
+      'Parma Calcio 1913': { abbr: 'PAR', color: '#FFD100', color2: '#003087' },
+      'Genoa CFC': { abbr: 'GEN', color: '#AE1919', color2: '#05232F' },
+      'Cagliari Calcio': { abbr: 'CAG', color: '#B01028', color2: '#082242' },
+      'Torino FC': { abbr: 'TOR', color: '#881F19', color2: '#FFFFFF' },
+      'US Lecce': { abbr: 'LEC', color: '#FFED00', color2: '#E2001A' },
+      'ACF Fiorentina': { abbr: 'FIO', color: '#502D7F', color2: '#FFFFFF' },
+      'US Cremonese': { abbr: 'CRE', color: '#C4122E', color2: '#AFAFAF' },
+      'Hellas Verona FC': { abbr: 'VER', color: '#002F87', color2: '#FFD100' },
+      'AC Pisa 1909': { abbr: 'AC', color: '#0055A4', color2: '#000000' },
+      'Venezia FC': { abbr: 'VEN', color: '#FF6600', color2: '#000000' },
+      'Empoli FC': { abbr: 'EMP', color: '#0066CC', color2: '#FFFFFF' },
+      'AC Monza': { abbr: 'MON', color: '#E60026', color2: '#FFFFFF' },
+    };
+
+    function getMeta(name) {
+      if (TEAM_META[name]) return TEAM_META[name];
+      let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffffff;
+      return { abbr: name.slice(0, 3).toUpperCase(), color: '#' + ((h & 0x888888) | 0x444444).toString(16).padStart(6, '0'), color2: '#ffffff' };
+    }
+
+    // ── PREDICTIONS ───────────────────────────────────────────────────────────────
+    const PRED_NAMES = [
+      [ // Ana
+        'SSC Napoli', 'Juventus FC', 'AS Roma', 'FC Internazionale Milano', 'AC Milan',
+        'ACF Fiorentina', 'Bologna FC 1909', 'SS Lazio', 'Atalanta BC', 'Como 1907',
+        'Torino FC', 'Udinese Calcio', 'Genoa CFC', 'Cagliari Calcio', 'US Sassuolo Calcio',
+        'US Cremonese', 'US Lecce', 'Hellas Verona FC', 'Parma Calcio 1913', 'AC Pisa 1909',
+      ],
+      [ // Adil
+        'Juventus FC', 'SSC Napoli', 'FC Internazionale Milano', 'AC Milan', 'AS Roma',
+        'SS Lazio', 'Bologna FC 1909', 'Atalanta BC', 'ACF Fiorentina', 'Como 1907',
+        'Torino FC', 'Genoa CFC', 'Udinese Calcio', 'Parma Calcio 1913', 'US Sassuolo Calcio',
+        'Cagliari Calcio', 'US Cremonese', 'Hellas Verona FC', 'AC Pisa 1909', 'US Lecce',
+      ],
+    ];
+    const PLAYER_LABELS = ['Ana', 'Adil'];
+
+    // ── STATE ─────────────────────────────────────────────────────────────────────
+    let real = [];
+    let preds = [[], []];
+    let current = 0;
+    let apiLoaded = false;
+
+    // ── HELPERS ───────────────────────────────────────────────────────────────────
+    function zone(p) {
+      if (p <= 4) return 'cl';
+      if (p === 5) return 'el';
+      if (p === 6) return 'conf';
+      if (p >= 18) return 'rel';
+      return '';
+    }
+
+    function zoneBonus(myPos, rPos) {
+      if (rPos === undefined) return 0;
+      const myZone = zone(myPos);
+      const rZone = zone(rPos);
+      if (myZone && myZone !== '' && myZone === rZone) return 1;
+      return 0;
+    }
+
+    function realPosMap() { const m = {}; real.forEach((t, i) => m[t.name] = i + 1); return m; }
+
+    function scoreRow(myPos, rPos) {
+      if (rPos === undefined) return { pos_pts: 0, zone_pts: 0, total: 0, diff: 99 };
+      const diff = Math.abs(myPos - rPos);
+      const pos_pts = diff === 0 ? 3 : diff === 1 ? 2 : 0;
+      const zone_pts = zoneBonus(myPos, rPos);
+      return { pos_pts, zone_pts, total: pos_pts + zone_pts, diff };
+    }
+
+    function calcTotal(pred) {
+      const rpm = realPosMap(); let pos_t = 0, zone_t = 0, exact = 0;
+      pred.forEach((t, i) => {
+        const s = scoreRow(i + 1, rpm[t.name]);
+        pos_t += s.pos_pts;
+        zone_t += s.zone_pts;
+        if (s.diff === 0) exact++;
+      });
+      return { pos_t, zone_t, exact, total: pos_t + zone_t };
+    }
+
+    function zClass(pos) { const z = zone(pos); return z ? `zone-${z}` : 'no-zone'; }
+
+    function deltaHtml(diff) {
+      if (diff === 99) return `<span class="font-mono text-[.46rem] font-bold mt-px text-text3">?</span>`;
+      if (diff === 0) return `<span class="ds font-mono text-[.46rem] font-bold mt-px">—</span>`;
+      return diff > 0
+        ? `<span class="du font-mono text-[.46rem] font-bold mt-px">▲${diff}</span>`
+        : `<span class="dd font-mono text-[.46rem] font-bold mt-px">▼${Math.abs(diff)}</span>`;
+    }
+
+    function rowScoreHtml(s) {
+      let cls, txt;
+      if (s.total === 4) { cls = 'rs-4'; txt = '4pt'; }
+      else if (s.total === 3) { cls = 'rs-3'; txt = '3pt'; }
+      else if (s.total === 2) { cls = 'rs-2'; txt = '2pt'; }
+      else if (s.total === 1) { cls = s.pos_pts ? 'rs-1' : 'rs-b'; txt = '1pt'; }
+      else { cls = 'rs-0'; txt = '0pt'; }
+      return `<div class="flex items-center justify-center font-mono text-[.58rem] font-bold"><span class="${cls}">${txt}</span></div>`;
+    }
+
+    function logoHtml(t, size = 25) {
+      const r = size <= 16 ? '3px' : '6px';
+      return `<div class="relative flex-shrink-0 flex items-center justify-center overflow-hidden" style="width:${size}px;height:${size}px;border-radius:${r};border:1px solid rgba(255,255,255,0.12)"><div class="logo-half logo-left" style="background:${t.color}"></div><div class="logo-half logo-right" style="background:${t.color2}"></div><span class="logo-abbr">${t.abbr}</span></div>`;
+    }
+
+    // ── BUILD PREDS FROM REAL ────────────────────────────────────────────────────
+    function buildPreds() {
+      const byName = {};
+      real.forEach(t => byName[t.name] = t);
+      preds = PRED_NAMES.map(names => names.map(name => {
+        if (byName[name]) return { ...byName[name] };
+        return { name, shortName: name, pts: null, g: null, ...getMeta(name) };
+      }));
+    }
+
+    // ── RENDER PREDICTION ─────────────────────────────────────────────────────────
+    function renderPred() {
+      if (!apiLoaded) return;
+      const pred = preds[current], rpm = realPosMap();
+      const el = document.getElementById('col-pred');
+      el.innerHTML = '';
+      let dragSrc = null;
+      pred.forEach((t, i) => {
+        const pos = i + 1, rpos = rpm[t.name], diff = rpos !== undefined ? (rpos - pos) : 99, s = scoreRow(pos, rpos);
+        const row = document.createElement('div');
+        row.className = `team-row ${zClass(pos)} grid items-center px-4 py-2 border-b border-white/[0.03] hover:bg-surface2 transition-colors duration-150`;
+        row.style.cssText = `grid-template-columns:44px 1fr 38px 52px;animation-delay:${i * 10}ms`;
+        row.draggable = true; row.dataset.idx = i;
+        row.innerHTML = `
+      <div class="flex flex-col items-center leading-none">
+        <span class="font-condensed font-bold text-[1.05rem] ${pos <= 3 ? 'text-text1' : 'text-text2'}">${pos}</span>
+        ${deltaHtml(diff)}
+      </div>
+      <div class="flex items-center gap-2 min-w-0">
+        ${logoHtml(t)}
+        <span class="text-[.82rem] font-semibold whitespace-nowrap overflow-hidden text-ellipsis">${t.shortName || t.name}</span>
+      </div>
+      <div class="font-condensed font-bold text-[1rem] text-center">${t.pts ?? '—'}</div>
+      ${rowScoreHtml(s)}`;
+        row.addEventListener('dragstart', e => { dragSrc = i; row.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+        row.addEventListener('dragend', () => { row.classList.remove('dragging'); el.querySelectorAll('.team-row').forEach(r => r.classList.remove('drag-over')); });
+        row.addEventListener('dragover', e => { e.preventDefault(); el.querySelectorAll('.team-row').forEach(r => r.classList.remove('drag-over')); row.classList.add('drag-over'); });
+        row.addEventListener('drop', e => {
+          e.preventDefault();
+          const tgt = parseInt(row.dataset.idx);
+          if (dragSrc === null || dragSrc === tgt) return;
+          const moved = pred.splice(dragSrc, 1)[0]; pred.splice(tgt, 0, moved); dragSrc = null;
+          renderPred(); renderScore();
+        });
+        el.appendChild(row);
+      });
+    }
+
+    // ── RENDER REAL ───────────────────────────────────────────────────────────────
+    function renderReal() {
+      const el = document.getElementById('col-real');
+      el.innerHTML = '';
+      real.forEach((t, i) => {
+        const pos = i + 1, row = document.createElement('div');
+        row.className = `real-row ${zClass(pos)} grid items-center px-4 py-2 border-b border-white/[0.03]`;
+        row.style.cssText = `grid-template-columns:36px 1fr 38px 34px;animation-delay:${i * 10}ms`;
+        row.innerHTML = `
+      <div class="flex flex-col items-center leading-none">
+        <span class="font-condensed font-bold text-[1.05rem] ${pos <= 3 ? 'text-text1' : 'text-text2'}">${pos}</span>
+      </div>
+      <div class="flex items-center gap-2 min-w-0">
+        ${logoHtml(t)}
+        <span class="text-[.82rem] font-semibold whitespace-nowrap overflow-hidden text-ellipsis">${t.shortName || t.name}</span>
+      </div>
+      <div class="font-condensed font-bold text-[1rem] text-center">${t.pts}</div>
+      <div class="text-[.76rem] text-center text-text2">${t.g}</div>`;
+        el.appendChild(row);
+      });
+    }
+
+    function renderScore() {
+      if (!apiLoaded) return;
+      const s = calcTotal(preds[current]);
+      document.getElementById('score-num').textContent = s.total;
+      document.getElementById('sb-pos').textContent = s.pos_t + 'pt';
+      document.getElementById('sb-zone').textContent = s.zone_t + 'pt';
+      document.getElementById('sb-exact').textContent = s.exact;
+    }
+    function renderAll() { renderPred(); renderReal(); renderScore(); }
+
+    // ── FETCH STANDINGS via secure proxy ──────────────────────────────────────────
+    async function fetchStandings() {
+      const btn = document.getElementById('btn-refresh');
+      const badge = document.getElementById('api-badge');
+      btn.innerHTML = '<span class="spin">⟳</span> aggiorna';
+      btn.disabled = true;
+      badge.textContent = '● loading…';
+      badge.className = 'font-mono text-[.58rem] tracking-[.1em] border rounded px-2 py-0.5 border-yellow/30 text-yellow transition-all duration-300';
+
+      try {
+        const res = await fetch(API_URL);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        const table = data.standings.find(s => s.type === 'TOTAL').table;
+        const giornata = data.season?.currentMatchday ?? '—';
+
+        real = table.map(row => {
+          const name = row.team.name, meta = getMeta(name);
+          return { name, shortName: row.team.shortName || name, abbr: meta.abbr, color: meta.color, color2: meta.color2, pts: row.points, g: row.playedGames };
+        });
+
+        buildPreds();
+        apiLoaded = true;
+
+        document.getElementById('loading-real').classList.add('hidden');
+        document.getElementById('col-real').classList.remove('hidden');
+        document.getElementById('giornata-label').textContent = `Giornata ${giornata}`;
+        const now = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+        document.getElementById('last-updated').textContent = `agg. ${now}`;
+
+        badge.textContent = '● live';
+        badge.className = 'font-mono text-[.58rem] tracking-[.1em] border rounded px-2 py-0.5 border-neon/30 text-neon transition-all duration-300';
+
+        renderAll();
+        showToast('✓ classifica aggiornata', 'neon');
+
+      } catch (err) {
+        console.error(err);
+        badge.textContent = '● errore';
+        badge.className = 'font-mono text-[.58rem] tracking-[.1em] border rounded px-2 py-0.5 border-red/30 text-red transition-all duration-300';
+        if (!apiLoaded) {
+          document.getElementById('loading-real').innerHTML = `
+        <div class="text-center px-4 py-6">
+          <div class="text-red text-2xl mb-2">⚠</div>
+          <p class="font-mono text-[.58rem] text-text3 tracking-wide leading-loose">Impossibile caricare la classifica.<br/>Controlla la connessione e riprova.</p>
+        </div>`;
+          document.getElementById('col-pred').innerHTML = `
+        <div class="text-center px-4 py-6">
+          <p class="font-mono text-[.58rem] text-text3 tracking-wide">In attesa dei dati…</p>
+        </div>`;
+        }
+        showToast('✗ ' + err.message, 'red');
+      } finally {
+        btn.innerHTML = '⟳ aggiorna';
+        btn.disabled = false;
+      }
+    }
+
+    // ── SWITCH PLAYER ─────────────────────────────────────────────────────────────
+    function switchPlayer(idx) {
+      current = idx;
+      const base = 'font-condensed font-bold tracking-widest uppercase text-sm px-6 py-1.5 rounded-md border transition-all duration-150 cursor-pointer ';
+      document.getElementById('btn-p1').className = base + (idx === 0 ? 'bg-neon/10 border-neon/25 text-neon' : 'border-border bg-transparent text-text2 hover:bg-surface2 hover:text-text1');
+      document.getElementById('btn-p2').className = base + (idx === 1 ? 'bg-purple/10 border-purple/25 text-purple' : 'border-border bg-transparent text-text2 hover:bg-surface2 hover:text-text1');
+      const color = idx === 0 ? '#00ff88' : '#b06cff';
+      document.getElementById('col-pred-title').style.color = color;
+      document.getElementById('score-num').style.color = color;
+      document.getElementById('score-label').textContent = `Punteggio — ${PLAYER_LABELS[idx]}`;
+      document.getElementById('col-pred-title').textContent = `Previsione ${PLAYER_LABELS[idx]}`;
+      renderAll();
+    }
+
+    // ── RESET ─────────────────────────────────────────────────────────────────────
+    function resetCurrent() {
+      if (!apiLoaded) return showToast('Aspetta il caricamento', 'yellow');
+      if (!confirm(`Resettare la previsione di ${PLAYER_LABELS[current]}?`)) return;
+      const byName = {}; real.forEach(t => byName[t.name] = t);
+      preds[current] = PRED_NAMES[current].map(name => byName[name] ? { ...byName[name] } : { name, shortName: name, pts: null, g: null, ...getMeta(name) });
+      renderAll();
+      showToast('// reset completato', 'neon');
+    }
+
+    // ── TOAST ─────────────────────────────────────────────────────────────────────
+    let toastTimer;
+    function showToast(msg, type = 'neon') {
+      const t = document.getElementById('toast');
+      const map = { neon: ['#00ff88', 'rgba(0,255,136,.15)'], yellow: ['#ffd600', 'rgba(255,214,0,.15)'], red: ['#ff2d55', 'rgba(255,45,85,.15)'] };
+      const [tc, bc] = map[type] || map.neon;
+      t.textContent = msg; t.style.color = tc; t.style.borderColor = tc.replace(')', ', .35)').replace('rgb', 'rgba');
+      t.style.background = bc; t.style.opacity = '1';
+      clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 2200);
+    }
+
+    // ── INIT ──────────────────────────────────────────────────────────────────────
+    switchPlayer(0);
+    fetchStandings();
+  </script>
+</body>
+
+</html>

@@ -187,6 +187,15 @@
       background: #252836;
       border-radius: 3px
     }
+
+    .countdown-ring {
+      transform: rotate(-90deg);
+      transform-origin: center;
+    }
+
+    .countdown-ring circle {
+      transition: stroke-dashoffset 1s linear;
+    }
   </style>
 </head>
 
@@ -215,15 +224,20 @@
   <!-- LEGEND -->
   <div
     class="relative z-10 flex flex-wrap gap-x-5 gap-y-1.5 justify-center px-4 py-2 border-b border-border font-mono text-[.62rem] tracking-[.08em] uppercase text-text2">
-    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-neon"></span>Champions (1–4) ★</span>
-    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-yellow"></span>Europa League (5) ★</span>
-    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-orange"></span>Conference (6) ★</span>
-    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-red"></span>Retrocessione (18–20) ★</span>
+    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-neon"></span>Champions (1–4)
+      ★</span>
+    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-yellow"></span>Europa League (5)
+      ★</span>
+    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-orange"></span>Conference (6)
+      ★</span>
+    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-red"></span>Retrocessione (18–20)
+      ★</span>
     <span class="flex items-center gap-1.5 text-text3">★ bonus zona se esatta</span>
   </div>
 
   <!-- SCORE RULES BANNER -->
-  <div class="relative z-10 flex items-center justify-center gap-4 px-4 py-2 bg-surface/50 border-b border-border font-mono text-[.52rem] tracking-[.08em] uppercase text-text3">
+  <div
+    class="relative z-10 flex items-center justify-center gap-4 px-4 py-2 bg-surface/50 border-b border-border font-mono text-[.52rem] tracking-[.08em] uppercase text-text3">
     <span>Pos. esatta = <span class="text-neon font-bold">3pt</span></span>
     <span class="text-border">|</span>
     <span>Pos. ±1 = <span class="text-yellow font-bold">2pt</span></span>
@@ -315,7 +329,19 @@
   </div>
 
   <!-- CONTROLS -->
-  <div class="fixed bottom-5 right-5 flex gap-2 z-50">
+  <div class="fixed bottom-5 right-5 flex gap-2 z-50 items-center">
+    <button id="btn-auto" onclick="toggleAutoRefresh()"
+      class="relative flex items-center gap-1.5 font-mono text-[.58rem] tracking-[.08em] uppercase rounded-md px-3 py-1.5 border border-neon/20 bg-neon/5 text-neon hover:bg-neon/15 backdrop-blur-md transition-all duration-150 cursor-pointer">
+      <span class="relative w-4 h-4 flex items-center justify-center">
+        <svg id="countdown-svg" class="countdown-ring absolute inset-0 w-4 h-4" viewBox="0 0 16 16">
+          <circle cx="8" cy="8" r="6" fill="none" stroke="rgba(0,255,136,0.15)" stroke-width="2" />
+          <circle id="countdown-circle" cx="8" cy="8" r="6" fill="none" stroke="#00ff88" stroke-width="2"
+            stroke-dasharray="37.7" stroke-dashoffset="0" />
+        </svg>
+        <span id="auto-icon" class="relative z-10 text-[.6rem]">▶</span>
+      </span>
+      <span id="auto-label">auto</span>
+    </button>
     <button id="btn-refresh" onclick="fetchStandings()"
       class="live-pulse font-mono text-[.58rem] tracking-[.08em] uppercase rounded-md px-3 py-1.5 border border-neon/20 bg-neon/5 text-neon hover:bg-neon/15 backdrop-blur-md transition-all duration-150 cursor-pointer">
       ⟳ aggiorna
@@ -334,11 +360,10 @@
   </div>
 
   <script>
-    // ── CONFIG ────────────────────────────────────────────────────────────────────
-    // API key is now server-side in /api/standings.js — no key exposed here!
+    // ── CONFIG ─────────────────────────────────────────────────────────────────────
     const API_URL = '/api/standings';
 
-    // ── TEAM COLOR MAP ─────────────────────────────────────────────────────────────
+    // ── TEAM META ──────────────────────────────────────────────────────────────────
     const TEAM_META = {
       'FC Internazionale Milano': { abbr: 'INT', color: '#0057A3', color2: '#000000' },
       'AC Milan': { abbr: 'MIL', color: '#FB090B', color2: '#000000' },
@@ -371,7 +396,7 @@
       return { abbr: name.slice(0, 3).toUpperCase(), color: '#' + ((h & 0x888888) | 0x444444).toString(16).padStart(6, '0'), color2: '#ffffff' };
     }
 
-    // ── PREDICTIONS ───────────────────────────────────────────────────────────────
+    // ── PREDICTIONS ────────────────────────────────────────────────────────────────
     const PRED_NAMES = [
       [ // Ana
         'SSC Napoli', 'Juventus FC', 'AS Roma', 'FC Internazionale Milano', 'AC Milan',
@@ -388,31 +413,20 @@
     ];
     const PLAYER_LABELS = ['Ana', 'Adil'];
 
-    // ── STATE ─────────────────────────────────────────────────────────────────────
-    let real = [];
-    let preds = [[], []];
-    let current = 0;
-    let apiLoaded = false;
+    // ── STATE ──────────────────────────────────────────────────────────────────────
+    let real = [], preds = [[], []], current = 0, apiLoaded = false;
 
-    // ── HELPERS ───────────────────────────────────────────────────────────────────
+    // ── HELPERS ────────────────────────────────────────────────────────────────────
     function zone(p) {
-      if (p <= 4) return 'cl';
-      if (p === 5) return 'el';
-      if (p === 6) return 'conf';
-      if (p >= 18) return 'rel';
-      return '';
+      if (p <= 4) return 'cl'; if (p === 5) return 'el';
+      if (p === 6) return 'conf'; if (p >= 18) return 'rel'; return '';
     }
-
     function zoneBonus(myPos, rPos) {
       if (rPos === undefined) return 0;
-      const myZone = zone(myPos);
-      const rZone = zone(rPos);
-      if (myZone && myZone !== '' && myZone === rZone) return 1;
-      return 0;
+      const mz = zone(myPos), rz = zone(rPos);
+      return (mz && mz === rz) ? 1 : 0;
     }
-
     function realPosMap() { const m = {}; real.forEach((t, i) => m[t.name] = i + 1); return m; }
-
     function scoreRow(myPos, rPos) {
       if (rPos === undefined) return { pos_pts: 0, zone_pts: 0, total: 0, diff: 99 };
       const diff = Math.abs(myPos - rPos);
@@ -420,20 +434,12 @@
       const zone_pts = zoneBonus(myPos, rPos);
       return { pos_pts, zone_pts, total: pos_pts + zone_pts, diff };
     }
-
     function calcTotal(pred) {
       const rpm = realPosMap(); let pos_t = 0, zone_t = 0, exact = 0;
-      pred.forEach((t, i) => {
-        const s = scoreRow(i + 1, rpm[t.name]);
-        pos_t += s.pos_pts;
-        zone_t += s.zone_pts;
-        if (s.diff === 0) exact++;
-      });
+      pred.forEach((t, i) => { const s = scoreRow(i + 1, rpm[t.name]); pos_t += s.pos_pts; zone_t += s.zone_pts; if (s.diff === 0) exact++; });
       return { pos_t, zone_t, exact, total: pos_t + zone_t };
     }
-
     function zClass(pos) { const z = zone(pos); return z ? `zone-${z}` : 'no-zone'; }
-
     function deltaHtml(diff) {
       if (diff === 99) return `<span class="font-mono text-[.46rem] font-bold mt-px text-text3">?</span>`;
       if (diff === 0) return `<span class="ds font-mono text-[.46rem] font-bold mt-px">—</span>`;
@@ -441,7 +447,6 @@
         ? `<span class="du font-mono text-[.46rem] font-bold mt-px">▲${diff}</span>`
         : `<span class="dd font-mono text-[.46rem] font-bold mt-px">▼${Math.abs(diff)}</span>`;
     }
-
     function rowScoreHtml(s) {
       let cls, txt;
       if (s.total === 4) { cls = 'rs-4'; txt = '4pt'; }
@@ -451,29 +456,25 @@
       else { cls = 'rs-0'; txt = '0pt'; }
       return `<div class="flex items-center justify-center font-mono text-[.58rem] font-bold"><span class="${cls}">${txt}</span></div>`;
     }
-
     function logoHtml(t, size = 25) {
       const r = size <= 16 ? '3px' : '6px';
       return `<div class="relative flex-shrink-0 flex items-center justify-center overflow-hidden" style="width:${size}px;height:${size}px;border-radius:${r};border:1px solid rgba(255,255,255,0.12)"><div class="logo-half logo-left" style="background:${t.color}"></div><div class="logo-half logo-right" style="background:${t.color2}"></div><span class="logo-abbr">${t.abbr}</span></div>`;
     }
 
-    // ── BUILD PREDS FROM REAL ────────────────────────────────────────────────────
+    // ── BUILD PREDS ────────────────────────────────────────────────────────────────
     function buildPreds() {
-      const byName = {};
-      real.forEach(t => byName[t.name] = t);
-      preds = PRED_NAMES.map(names => names.map(name => {
-        if (byName[name]) return { ...byName[name] };
-        return { name, shortName: name, pts: null, g: null, ...getMeta(name) };
-      }));
+      const byName = {}; real.forEach(t => byName[t.name] = t);
+      preds = PRED_NAMES.map(names => names.map(name =>
+        byName[name] ? { ...byName[name] } : { name, shortName: name, pts: null, g: null, ...getMeta(name) }
+      ));
     }
 
-    // ── RENDER PREDICTION ─────────────────────────────────────────────────────────
+    // ── RENDER PRED ────────────────────────────────────────────────────────────────
     function renderPred() {
       if (!apiLoaded) return;
       const pred = preds[current], rpm = realPosMap();
       const el = document.getElementById('col-pred');
-      el.innerHTML = '';
-      let dragSrc = null;
+      el.innerHTML = ''; let dragSrc = null;
       pred.forEach((t, i) => {
         const pos = i + 1, rpos = rpm[t.name], diff = rpos !== undefined ? (rpos - pos) : 99, s = scoreRow(pos, rpos);
         const row = document.createElement('div');
@@ -481,16 +482,16 @@
         row.style.cssText = `grid-template-columns:44px 1fr 38px 52px;animation-delay:${i * 10}ms`;
         row.draggable = true; row.dataset.idx = i;
         row.innerHTML = `
-      <div class="flex flex-col items-center leading-none">
-        <span class="font-condensed font-bold text-[1.05rem] ${pos <= 3 ? 'text-text1' : 'text-text2'}">${pos}</span>
-        ${deltaHtml(diff)}
-      </div>
-      <div class="flex items-center gap-2 min-w-0">
-        ${logoHtml(t)}
-        <span class="text-[.82rem] font-semibold whitespace-nowrap overflow-hidden text-ellipsis">${t.shortName || t.name}</span>
-      </div>
-      <div class="font-condensed font-bold text-[1rem] text-center">${t.pts ?? '—'}</div>
-      ${rowScoreHtml(s)}`;
+          <div class="flex flex-col items-center leading-none">
+            <span class="font-condensed font-bold text-[1.05rem] ${pos <= 3 ? 'text-text1' : 'text-text2'}">${pos}</span>
+            ${deltaHtml(diff)}
+          </div>
+          <div class="flex items-center gap-2 min-w-0">
+            ${logoHtml(t)}
+            <span class="text-[.82rem] font-semibold whitespace-nowrap overflow-hidden text-ellipsis">${t.shortName || t.name}</span>
+          </div>
+          <div class="font-condensed font-bold text-[1rem] text-center">${t.pts ?? '—'}</div>
+          ${rowScoreHtml(s)}`;
         row.addEventListener('dragstart', e => { dragSrc = i; row.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
         row.addEventListener('dragend', () => { row.classList.remove('dragging'); el.querySelectorAll('.team-row').forEach(r => r.classList.remove('drag-over')); });
         row.addEventListener('dragover', e => { e.preventDefault(); el.querySelectorAll('.team-row').forEach(r => r.classList.remove('drag-over')); row.classList.add('drag-over'); });
@@ -505,24 +506,23 @@
       });
     }
 
-    // ── RENDER REAL ───────────────────────────────────────────────────────────────
+    // ── RENDER REAL ────────────────────────────────────────────────────────────────
     function renderReal() {
-      const el = document.getElementById('col-real');
-      el.innerHTML = '';
+      const el = document.getElementById('col-real'); el.innerHTML = '';
       real.forEach((t, i) => {
         const pos = i + 1, row = document.createElement('div');
         row.className = `real-row ${zClass(pos)} grid items-center px-4 py-2 border-b border-white/[0.03]`;
         row.style.cssText = `grid-template-columns:36px 1fr 38px 34px;animation-delay:${i * 10}ms`;
         row.innerHTML = `
-      <div class="flex flex-col items-center leading-none">
-        <span class="font-condensed font-bold text-[1.05rem] ${pos <= 3 ? 'text-text1' : 'text-text2'}">${pos}</span>
-      </div>
-      <div class="flex items-center gap-2 min-w-0">
-        ${logoHtml(t)}
-        <span class="text-[.82rem] font-semibold whitespace-nowrap overflow-hidden text-ellipsis">${t.shortName || t.name}</span>
-      </div>
-      <div class="font-condensed font-bold text-[1rem] text-center">${t.pts}</div>
-      <div class="text-[.76rem] text-center text-text2">${t.g}</div>`;
+          <div class="flex flex-col items-center leading-none">
+            <span class="font-condensed font-bold text-[1.05rem] ${pos <= 3 ? 'text-text1' : 'text-text2'}">${pos}</span>
+          </div>
+          <div class="flex items-center gap-2 min-w-0">
+            ${logoHtml(t)}
+            <span class="text-[.82rem] font-semibold whitespace-nowrap overflow-hidden text-ellipsis">${t.shortName || t.name}</span>
+          </div>
+          <div class="font-condensed font-bold text-[1rem] text-center">${t.pts}</div>
+          <div class="text-[.76rem] text-center text-text2">${t.g}</div>`;
         el.appendChild(row);
       });
     }
@@ -537,66 +537,47 @@
     }
     function renderAll() { renderPred(); renderReal(); renderScore(); }
 
-    // ── FETCH STANDINGS via secure proxy ──────────────────────────────────────────
+    // ── FETCH ──────────────────────────────────────────────────────────────────────
     async function fetchStandings() {
       const btn = document.getElementById('btn-refresh');
       const badge = document.getElementById('api-badge');
-      btn.innerHTML = '<span class="spin">⟳</span> aggiorna';
-      btn.disabled = true;
+      btn.innerHTML = '<span class="spin">⟳</span> aggiorna'; btn.disabled = true;
       badge.textContent = '● loading…';
       badge.className = 'font-mono text-[.58rem] tracking-[.1em] border rounded px-2 py-0.5 border-yellow/30 text-yellow transition-all duration-300';
-
       try {
         const res = await fetch(API_URL);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-
         const table = data.standings.find(s => s.type === 'TOTAL').table;
         const giornata = data.season?.currentMatchday ?? '—';
-
         real = table.map(row => {
           const name = row.team.name, meta = getMeta(name);
           return { name, shortName: row.team.shortName || name, abbr: meta.abbr, color: meta.color, color2: meta.color2, pts: row.points, g: row.playedGames };
         });
-
-        buildPreds();
-        apiLoaded = true;
-
+        buildPreds(); apiLoaded = true;
         document.getElementById('loading-real').classList.add('hidden');
         document.getElementById('col-real').classList.remove('hidden');
         document.getElementById('giornata-label').textContent = `Giornata ${giornata}`;
         const now = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
         document.getElementById('last-updated').textContent = `agg. ${now}`;
-
         badge.textContent = '● live';
         badge.className = 'font-mono text-[.58rem] tracking-[.1em] border rounded px-2 py-0.5 border-neon/30 text-neon transition-all duration-300';
-
-        renderAll();
-        showToast('✓ classifica aggiornata', 'neon');
-
+        renderAll(); showToast('✓ classifica aggiornata', 'neon');
       } catch (err) {
         console.error(err);
         badge.textContent = '● errore';
         badge.className = 'font-mono text-[.58rem] tracking-[.1em] border rounded px-2 py-0.5 border-red/30 text-red transition-all duration-300';
         if (!apiLoaded) {
-          document.getElementById('loading-real').innerHTML = `
-        <div class="text-center px-4 py-6">
-          <div class="text-red text-2xl mb-2">⚠</div>
-          <p class="font-mono text-[.58rem] text-text3 tracking-wide leading-loose">Impossibile caricare la classifica.<br/>Controlla la connessione e riprova.</p>
-        </div>`;
-          document.getElementById('col-pred').innerHTML = `
-        <div class="text-center px-4 py-6">
-          <p class="font-mono text-[.58rem] text-text3 tracking-wide">In attesa dei dati…</p>
-        </div>`;
+          document.getElementById('loading-real').innerHTML = `<div class="text-center px-4 py-6"><div class="text-red text-2xl mb-2">⚠</div><p class="font-mono text-[.58rem] text-text3 tracking-wide leading-loose">Impossibile caricare la classifica.<br/>Controlla la connessione e riprova.</p></div>`;
+          document.getElementById('col-pred').innerHTML = `<div class="text-center px-4 py-6"><p class="font-mono text-[.58rem] text-text3 tracking-wide">In attesa dei dati…</p></div>`;
         }
         showToast('✗ ' + err.message, 'red');
       } finally {
-        btn.innerHTML = '⟳ aggiorna';
-        btn.disabled = false;
+        btn.innerHTML = '⟳ aggiorna'; btn.disabled = false;
       }
     }
 
-    // ── SWITCH PLAYER ─────────────────────────────────────────────────────────────
+    // ── SWITCH PLAYER ──────────────────────────────────────────────────────────────
     function switchPlayer(idx) {
       current = idx;
       const base = 'font-condensed font-bold tracking-widest uppercase text-sm px-6 py-1.5 rounded-md border transition-all duration-150 cursor-pointer ';
@@ -610,17 +591,16 @@
       renderAll();
     }
 
-    // ── RESET ─────────────────────────────────────────────────────────────────────
+    // ── RESET ──────────────────────────────────────────────────────────────────────
     function resetCurrent() {
       if (!apiLoaded) return showToast('Aspetta il caricamento', 'yellow');
       if (!confirm(`Resettare la previsione di ${PLAYER_LABELS[current]}?`)) return;
       const byName = {}; real.forEach(t => byName[t.name] = t);
       preds[current] = PRED_NAMES[current].map(name => byName[name] ? { ...byName[name] } : { name, shortName: name, pts: null, g: null, ...getMeta(name) });
-      renderAll();
-      showToast('// reset completato', 'neon');
+      renderAll(); showToast('// reset completato', 'neon');
     }
 
-    // ── TOAST ─────────────────────────────────────────────────────────────────────
+    // ── TOAST ──────────────────────────────────────────────────────────────────────
     let toastTimer;
     function showToast(msg, type = 'neon') {
       const t = document.getElementById('toast');
@@ -631,7 +611,53 @@
       clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 2200);
     }
 
-    // ── INIT ──────────────────────────────────────────────────────────────────────
+    // ── AUTO REFRESH ───────────────────────────────────────────────────────────────
+    const AUTO_INTERVAL = 300;
+    let autoActive = false, countdownTimer = null, secondsLeft = AUTO_INTERVAL;
+
+    function toggleAutoRefresh() {
+      autoActive = !autoActive;
+      const btn = document.getElementById('btn-auto');
+      const icon = document.getElementById('auto-icon');
+      const label = document.getElementById('auto-label');
+      if (autoActive) {
+        btn.classList.remove('border-neon/20', 'bg-neon/5');
+        btn.classList.add('border-neon/40', 'bg-neon/15');
+        icon.textContent = '■';
+        startCountdown();
+        showToast('⟳ auto-refresh attivo (5 min)', 'neon');
+      } else {
+        btn.classList.add('border-neon/20', 'bg-neon/5');
+        btn.classList.remove('border-neon/40', 'bg-neon/15');
+        icon.textContent = '▶'; label.textContent = 'auto';
+        stopCountdown();
+        document.getElementById('countdown-circle').style.strokeDashoffset = '0';
+        showToast('// auto-refresh disattivato', 'yellow');
+      }
+    }
+
+    function startCountdown() {
+      stopCountdown(); secondsLeft = AUTO_INTERVAL; updateCountdownUI();
+      countdownTimer = setInterval(() => {
+        secondsLeft--;
+        updateCountdownUI();
+        if (secondsLeft <= 0) { fetchStandings(); secondsLeft = AUTO_INTERVAL; }
+      }, 1000);
+    }
+
+    function stopCountdown() {
+      if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+    }
+
+    function updateCountdownUI() {
+      const label = document.getElementById('auto-label');
+      const circle = document.getElementById('countdown-circle');
+      const mins = Math.floor(secondsLeft / 60), secs = secondsLeft % 60;
+      label.textContent = mins > 0 ? `${mins}m${secs.toString().padStart(2, '0')}s` : `${secs}s`;
+      circle.style.strokeDashoffset = 37.7 * (1 - secondsLeft / AUTO_INTERVAL);
+    }
+
+    // ── INIT ───────────────────────────────────────────────────────────────────────
     switchPlayer(0);
     fetchStandings();
   </script>

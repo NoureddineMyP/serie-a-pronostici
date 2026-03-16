@@ -330,7 +330,7 @@
     <div class="flex items-center justify-center gap-2 flex-wrap">
       <span
         class="font-mono text-[.58rem] tracking-[.14em] uppercase text-neon bg-neon/10 border border-neon/20 rounded px-2 py-0.5">⚽
-        2025/26</span>
+        2024/25</span>
       <span id="giornata-label"
         class="font-mono text-[.58rem] tracking-[.1em] text-text2 border border-border rounded px-2 py-0.5">Giornata
         —</span>
@@ -537,7 +537,8 @@
   <script>
     // ── CONFIG ─────────────────────────────────────────────────────────────────────
     const API_STANDINGS = '/api/standings';
-    const API_MATCHES = '/api/matches';   // football-data.org  /v4/competitions/SA/matches?matchday=N
+    const API_MATCHES = '/api/matches';
+    const API_HISTORY = '/api/history';
 
     // ── TEAM META ──────────────────────────────────────────────────────────────────
     const TEAM_META = {
@@ -593,16 +594,39 @@
     let real = [], preds = [[], []], current = 0, apiLoaded = false;
     let matchesData = [], activeFilter = 'all';
 
-    // ── SCORE HISTORY (localStorage) ──────────────────────────────────────────────
-    const HISTORY_KEY = 'serieA_score_history_v1';
+    // ── SCORE HISTORY ─────────────────────────────────────────────────────────────
+    const HISTORY_KEY = 'serieA_score_history_v2';
+    let historyCache = null; // { [matchday]: [scoreAna, scoreAdil] }
+
     function loadHistory() {
+      if (historyCache) return historyCache;
       try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || {}; } catch { return {}; }
     }
-    function saveHistory(giornata, scores) {
-      const h = loadHistory();
-      h[giornata] = scores;
-      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch { }
+    function saveHistory(data) {
+      historyCache = data;
+      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(data)); } catch { }
     }
+
+    async function fetchHistory() {
+      const chart = document.getElementById('score-chart');
+      // show loading state
+      if (chart) chart.innerHTML = '<div class="w-full text-center font-mono text-[.52rem] text-text3 py-2"><span class="spin inline-block mr-1">⟳</span>Caricamento storico…</div>';
+      try {
+        const res = await fetch(API_HISTORY);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        saveHistory(data.history ?? {});
+        renderChart();
+      } catch (err) {
+        console.error('history fetch error:', err);
+        // fall back to cached localStorage data
+        renderChart();
+        if (chart && Object.keys(loadHistory()).length === 0) {
+          chart.innerHTML = '<div class="w-full text-center font-mono text-[.52rem] text-text3 py-2">Storico non disponibile</div>';
+        }
+      }
+    }
+
     function renderChart() {
       const chart = document.getElementById('score-chart');
       const labels = document.getElementById('score-chart-labels');
@@ -610,39 +634,53 @@
       const h = loadHistory();
       const keys = Object.keys(h).map(Number).sort((a, b) => a - b);
       if (keys.length === 0) return;
-      const maxPts = 60;
+
+      // find max score across all matchdays for scaling
+      let maxPts = 0;
+      keys.forEach(g => { (h[g] || []).forEach(s => { if (s > maxPts) maxPts = s; }); });
+      maxPts = Math.max(maxPts, 20); // minimum scale
+
       chart.innerHTML = '';
       labels.innerHTML = '';
+
+      // highlight current giornata
+      const currentGiornata = parseInt(document.getElementById('giornata-label').textContent.replace('Giornata ', '')) || 0;
+
       keys.forEach(g => {
-        const scores = h[g];
+        const scores = h[g] || [0, 0];
+        const isCurrent = g === currentGiornata;
+
         const wrap = document.createElement('div');
-        wrap.className = 'flex flex-col items-center gap-0.5 flex-1';
-        // two bars side by side per giornata
+        wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;';
+
         const barWrap = document.createElement('div');
-        barWrap.style.cssText = 'display:flex;align-items:flex-end;gap:1px;height:60px;width:100%';
+        barWrap.style.cssText = 'display:flex;align-items:flex-end;gap:1px;height:60px;width:100%;';
+
         [0, 1].forEach(pi => {
           const pts = scores[pi] ?? 0;
-          const pct = Math.round((pts / maxPts) * 100);
+          const pct = Math.max(Math.round((pts / maxPts) * 100), 3);
           const color = pi === 0 ? '#00ff88' : '#b06cff';
+          const opacity = isCurrent ? '1' : '0.5';
           const bar = document.createElement('div');
-          bar.style.cssText = `flex:1;height:${Math.max(pct, 3)}%;background:${color};opacity:0.75;border-radius:2px 2px 0 0;position:relative;cursor:default;`;
-          bar.title = `G${g} ${PLAYER_LABELS[pi]}: ${pts}pt`;
-          // tooltip
+          bar.style.cssText = `flex:1;height:${pct}%;background:${color};opacity:${opacity};border-radius:2px 2px 0 0;position:relative;cursor:default;transition:opacity .2s;`;
+          if (isCurrent) bar.style.boxShadow = `0 0 6px ${color}66`;
+
           const tip = document.createElement('div');
           tip.className = 'chart-tooltip';
           tip.style.color = color;
-          tip.textContent = `${pts}pt`;
+          tip.textContent = `G${g} ${PLAYER_LABELS[pi]}: ${pts}pt`;
           bar.appendChild(tip);
-          bar.addEventListener('mouseenter', () => { tip.style.opacity = '1'; tip.style.transform = 'translateX(-50%) translateY(-4px)'; });
-          bar.addEventListener('mouseleave', () => { tip.style.opacity = '0'; tip.style.transform = 'translateX(-50%) translateY(0)'; });
+          bar.addEventListener('mouseenter', () => { bar.style.opacity = '1'; tip.style.opacity = '1'; tip.style.transform = 'translateX(-50%) translateY(-4px)'; });
+          bar.addEventListener('mouseleave', () => { bar.style.opacity = opacity; tip.style.opacity = '0'; tip.style.transform = 'translateX(-50%) translateY(0)'; });
           barWrap.appendChild(bar);
         });
+
         wrap.appendChild(barWrap);
         chart.appendChild(wrap);
+
         // label
         const lbl = document.createElement('span');
-        lbl.className = 'font-mono text-text3 flex-1 text-center';
-        lbl.style.fontSize = '.42rem';
+        lbl.style.cssText = `font-family:'JetBrains Mono',monospace;font-size:.42rem;color:${isCurrent ? '#f0f2ff' : '#5c6680'};flex:1;text-align:center;min-width:0;white-space:nowrap;overflow:hidden;`;
         lbl.textContent = `G${g}`;
         labels.appendChild(lbl);
       });
@@ -776,7 +814,7 @@
       document.getElementById('sb-zone').textContent = s.zone_t + 'pt';
       document.getElementById('sb-exact').textContent = s.exact;
     }
-    function renderAll() { renderPred(); renderReal(); renderScore(); renderChart(); }
+    function renderAll() { renderPred(); renderReal(); renderScore(); }
 
     // ── MATCHES HELPERS ────────────────────────────────────────────────────────────
     function matchStatusInfo(status) {
@@ -985,12 +1023,7 @@
       btn.innerHTML = '<span class="spin">⟳</span> aggiorna'; btn.disabled = true;
       const giornata = await fetchStandings();
       await fetchMatches(giornata);
-      // save current scores to history for this giornata
-      if (apiLoaded && giornata && giornata !== '—') {
-        const scores = PLAYER_LABELS.map((_, pi) => calcTotal(preds[pi]).total);
-        saveHistory(giornata, scores);
-        renderChart();
-      }
+
       btn.innerHTML = '⟳ aggiorna'; btn.disabled = false;
       showToast('✓ dati aggiornati', 'neon');
     }
@@ -1078,6 +1111,7 @@
     // ── INIT ───────────────────────────────────────────────────────────────────────
     switchPlayer(0);
     fetchAll();
+    fetchHistory();
   </script>
 </body>
 

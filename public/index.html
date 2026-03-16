@@ -196,6 +196,60 @@
     .countdown-ring circle {
       transition: stroke-dashoffset 1s linear;
     }
+
+    /* ── MATCH CARD ── */
+    .match-card {
+      animation: fadeUp .18s ease both;
+    }
+
+    @keyframes liveBlink {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: .35;
+      }
+    }
+
+    .live-dot {
+      animation: liveBlink 1.4s ease-in-out infinite;
+    }
+
+    /* status color helpers */
+    .status-live {
+      color: #00ff88;
+    }
+
+    .status-fin {
+      color: #7a8299;
+    }
+
+    .status-sched {
+      color: #ffd600;
+    }
+
+    .status-post {
+      color: #ff7b00;
+    }
+
+    .score-box {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: .95rem;
+      line-height: 1;
+      letter-spacing: -.04em;
+      min-width: 36px;
+      text-align: center;
+    }
+
+    .match-sep {
+      color: #3a4055;
+      font-size: .6rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
   </style>
 </head>
 
@@ -278,8 +332,8 @@
       class="font-condensed font-bold tracking-widest uppercase text-sm px-6 py-1.5 rounded-md border transition-all duration-150 cursor-pointer">Adil</button>
   </div>
 
-  <!-- MAIN GRID -->
-  <div class="relative z-10 grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] max-w-[900px] mx-auto px-2 pb-28">
+  <!-- MAIN GRID: 3 cols on lg -->
+  <div class="relative z-10 grid grid-cols-1 lg:grid-cols-[1fr_1px_1fr_1px_320px] max-w-[1280px] mx-auto px-2 pb-28">
 
     <!-- LEFT: Prediction -->
     <div>
@@ -303,10 +357,10 @@
       </div>
     </div>
 
-    <!-- DIVIDER -->
-    <div class="hidden md:block bg-border mx-1"></div>
+    <!-- DIVIDER 1 -->
+    <div class="hidden lg:block bg-border mx-1"></div>
 
-    <!-- RIGHT: Real standings -->
+    <!-- CENTER: Real standings -->
     <div>
       <div class="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
         <span class="font-condensed font-bold tracking-[.12em] uppercase text-[.82rem] text-text2">Classifica
@@ -326,6 +380,40 @@
       </div>
       <div id="col-real" class="hidden"></div>
     </div>
+
+    <!-- DIVIDER 2 -->
+    <div class="hidden lg:block bg-border mx-1"></div>
+
+    <!-- RIGHT: Matches of the matchday -->
+    <div>
+      <div class="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
+        <span class="font-condensed font-bold tracking-[.12em] uppercase text-[.82rem] text-yellow">Partite
+          Giornata</span>
+        <span id="matches-updated" class="font-mono text-[.48rem] text-text3"></span>
+      </div>
+      <!-- filter tabs -->
+      <div class="flex items-center gap-1 px-4 py-2 border-b border-border">
+        <button onclick="filterMatches('all')" id="mf-all"
+          class="match-filter-btn font-mono text-[.5rem] tracking-[.08em] uppercase px-2 py-0.5 rounded border transition-all duration-150 cursor-pointer border-yellow/30 bg-yellow/10 text-yellow">Tutte</button>
+        <button onclick="filterMatches('live')" id="mf-live"
+          class="match-filter-btn font-mono text-[.5rem] tracking-[.08em] uppercase px-2 py-0.5 rounded border transition-all duration-150 cursor-pointer border-border bg-transparent text-text3 hover:text-text2">Live</button>
+        <button onclick="filterMatches('fin')" id="mf-fin"
+          class="match-filter-btn font-mono text-[.5rem] tracking-[.08em] uppercase px-2 py-0.5 rounded border transition-all duration-150 cursor-pointer border-border bg-transparent text-text3 hover:text-text2">Finali</button>
+        <button onclick="filterMatches('sched')" id="mf-sched"
+          class="match-filter-btn font-mono text-[.5rem] tracking-[.08em] uppercase px-2 py-0.5 rounded border transition-all duration-150 cursor-pointer border-border bg-transparent text-text3 hover:text-text2">Da
+          giocare</button>
+      </div>
+      <div id="loading-matches" class="px-4 py-8 flex flex-col items-center gap-3">
+        <div class="spin text-yellow text-xl">⟳</div>
+        <span class="font-mono text-[.6rem] text-text3 tracking-widest uppercase">Caricamento partite…</span>
+      </div>
+      <div id="col-matches" class="hidden"></div>
+      <!-- live count badge -->
+      <div id="live-count-bar" class="hidden px-4 py-1 border-t border-border">
+        <span id="live-count-text" class="font-mono text-[.5rem] tracking-[.08em] uppercase text-text3"></span>
+      </div>
+    </div>
+
   </div>
 
   <!-- CONTROLS -->
@@ -342,7 +430,7 @@
       </span>
       <span id="auto-label">auto</span>
     </button>
-    <button id="btn-refresh" onclick="fetchStandings()"
+    <button id="btn-refresh" onclick="fetchAll()"
       class="live-pulse font-mono text-[.58rem] tracking-[.08em] uppercase rounded-md px-3 py-1.5 border border-neon/20 bg-neon/5 text-neon hover:bg-neon/15 backdrop-blur-md transition-all duration-150 cursor-pointer">
       ⟳ aggiorna
     </button>
@@ -361,7 +449,8 @@
 
   <script>
     // ── CONFIG ─────────────────────────────────────────────────────────────────────
-    const API_URL = '/api/standings';
+    const API_STANDINGS = '/api/standings';
+    const API_MATCHES = '/api/matches';   // football-data.org  /v4/competitions/SA/matches?matchday=N
 
     // ── TEAM META ──────────────────────────────────────────────────────────────────
     const TEAM_META = {
@@ -384,7 +473,7 @@
       'ACF Fiorentina': { abbr: 'FIO', color: '#502D7F', color2: '#FFFFFF' },
       'US Cremonese': { abbr: 'CRE', color: '#C4122E', color2: '#AFAFAF' },
       'Hellas Verona FC': { abbr: 'VER', color: '#002F87', color2: '#FFD100' },
-      'AC Pisa 1909': { abbr: 'AC', color: '#0055A4', color2: '#000000' },
+      'AC Pisa 1909': { abbr: 'PSN', color: '#0055A4', color2: '#000000' },
       'Venezia FC': { abbr: 'VEN', color: '#FF6600', color2: '#000000' },
       'Empoli FC': { abbr: 'EMP', color: '#0066CC', color2: '#FFFFFF' },
       'AC Monza': { abbr: 'MON', color: '#E60026', color2: '#FFFFFF' },
@@ -415,6 +504,7 @@
 
     // ── STATE ──────────────────────────────────────────────────────────────────────
     let real = [], preds = [[], []], current = 0, apiLoaded = false;
+    let matchesData = [], activeFilter = 'all';
 
     // ── HELPERS ────────────────────────────────────────────────────────────────────
     function zone(p) {
@@ -537,15 +627,156 @@
     }
     function renderAll() { renderPred(); renderReal(); renderScore(); }
 
-    // ── FETCH ──────────────────────────────────────────────────────────────────────
+    // ── MATCHES HELPERS ────────────────────────────────────────────────────────────
+    function matchStatusInfo(status) {
+      // football-data.org statuses
+      switch (status) {
+        case 'IN_PLAY': return { label: '● LIVE', cls: 'status-live', key: 'live' };
+        case 'PAUSED': return { label: '● PAUSA', cls: 'status-live', key: 'live' };
+        case 'FINISHED': return { label: 'Finale', cls: 'status-fin', key: 'fin' };
+        case 'TIMED':
+        case 'SCHEDULED': return { label: 'In programma', cls: 'status-sched', key: 'sched' };
+        case 'POSTPONED': return { label: 'Rinviata', cls: 'status-post', key: 'post' };
+        case 'SUSPENDED': return { label: 'Sospesa', cls: 'status-post', key: 'post' };
+        case 'CANCELLED': return { label: 'Annullata', cls: 'status-post', key: 'post' };
+        default: return { label: status, cls: 'status-sched', key: 'sched' };
+      }
+    }
+
+    function matchTimeLabel(match) {
+      if (match.status === 'TIMED' || match.status === 'SCHEDULED') {
+        const d = new Date(match.utcDate);
+        const day = d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
+        const time = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+        return `${day} ${time}`;
+      }
+      if (match.status === 'IN_PLAY' || match.status === 'PAUSED') {
+        const min = match.minute ?? match.score?.duration ?? '';
+        return min ? `${min}'` : '';
+      }
+      return '';
+    }
+
+    function miniLogoHtml(name, size = 20) {
+      const meta = getMeta(name);
+      const r = '4px';
+      return `<div class="relative flex-shrink-0 flex items-center justify-center overflow-hidden" style="width:${size}px;height:${size}px;border-radius:${r};border:1px solid rgba(255,255,255,0.1)"><div class="logo-half logo-left" style="background:${meta.color}"></div><div class="logo-half logo-right" style="background:${meta.color2}"></div><span class="logo-abbr">${meta.abbr}</span></div>`;
+    }
+
+    function scoreDisplay(match) {
+      const s = match.score;
+      if (!s) return '<span class="score-box text-text3">–</span>';
+      const ft = s.fullTime ?? s.regularTime ?? {};
+      const ht = s.halfTime ?? {};
+      const home = ft.home ?? s.home ?? null;
+      const away = ft.away ?? s.away ?? null;
+      if (home === null && away === null) return '<span class="score-box text-text3">–</span>';
+      const htHome = ht.home ?? null, htAway = ht.away ?? null;
+      const htLabel = (match.status === 'FINISHED' && htHome !== null) ? `<div class="font-mono text-[.42rem] text-text3 mt-0.5">(${htHome}:${htAway} PT)</div>` : '';
+      const isLive = match.status === 'IN_PLAY' || match.status === 'PAUSED';
+      const scoreColor = isLive ? '#00ff88' : '#f0f2ff';
+      return `<div class="flex flex-col items-center"><span class="score-box" style="color:${scoreColor}">${home}:${away}</span>${htLabel}</div>`;
+    }
+
+    // ── RENDER MATCHES ─────────────────────────────────────────────────────────────
+    function filterMatches(f) {
+      activeFilter = f;
+      // update tab styles
+      const tabs = { all: '#mf-all', live: '#mf-live', fin: '#mf-fin', sched: '#mf-sched' };
+      Object.entries(tabs).forEach(([key, sel]) => {
+        const el = document.querySelector(sel);
+        if (!el) return;
+        const isActive = key === f;
+        const activeColor = key === 'live' ? 'text-neon border-neon/30 bg-neon/10' : 'text-yellow border-yellow/30 bg-yellow/10';
+        el.className = `match-filter-btn font-mono text-[.5rem] tracking-[.08em] uppercase px-2 py-0.5 rounded border transition-all duration-150 cursor-pointer ${isActive ? activeColor : 'border-border bg-transparent text-text3 hover:text-text2'}`;
+      });
+      renderMatches();
+    }
+
+    function renderMatches() {
+      const el = document.getElementById('col-matches');
+      el.innerHTML = '';
+
+      let filtered = matchesData;
+      if (activeFilter === 'live') filtered = matchesData.filter(m => m.status === 'IN_PLAY' || m.status === 'PAUSED');
+      if (activeFilter === 'fin') filtered = matchesData.filter(m => m.status === 'FINISHED');
+      if (activeFilter === 'sched') filtered = matchesData.filter(m => m.status === 'TIMED' || m.status === 'SCHEDULED');
+
+      const liveCount = matchesData.filter(m => m.status === 'IN_PLAY' || m.status === 'PAUSED').length;
+      const liveBar = document.getElementById('live-count-bar');
+      const liveText = document.getElementById('live-count-text');
+      if (liveCount > 0) {
+        liveBar.classList.remove('hidden');
+        liveText.innerHTML = `<span class="live-dot text-neon">●</span> ${liveCount} partita${liveCount > 1 ? 'e' : ''} in corso`;
+      } else {
+        liveBar.classList.add('hidden');
+      }
+
+      if (filtered.length === 0) {
+        el.innerHTML = `<div class="px-4 py-6 text-center font-mono text-[.58rem] text-text3 tracking-wide">Nessuna partita in questa categoria.</div>`;
+        return;
+      }
+
+      // group by date
+      const groups = {};
+      filtered.forEach(m => {
+        const d = new Date(m.utcDate);
+        const key = d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(m);
+      });
+
+      Object.entries(groups).forEach(([dateLabel, matches], gi) => {
+        // date separator
+        const sep = document.createElement('div');
+        sep.className = 'px-4 py-1.5 border-b border-border';
+        sep.innerHTML = `<span class="font-mono text-[.48rem] tracking-[.12em] uppercase text-text3">${dateLabel}</span>`;
+        el.appendChild(sep);
+
+        matches.forEach((match, mi) => {
+          const si = matchStatusInfo(match.status);
+          const timeLabel = matchTimeLabel(match);
+          const homeName = match.homeTeam?.name ?? '?';
+          const awayName = match.awayTeam?.name ?? '?';
+          const homeShort = match.homeTeam?.shortName || homeName;
+          const awayShort = match.awayTeam?.shortName || awayName;
+          const isLive = match.status === 'IN_PLAY' || match.status === 'PAUSED';
+
+          const card = document.createElement('div');
+          card.className = `match-card border-b border-white/[0.03] px-4 py-2.5 hover:bg-surface2 transition-colors duration-150 ${isLive ? 'bg-neon/[0.03]' : ''}`;
+          card.style.animationDelay = `${(gi * 5 + mi) * 12}ms`;
+
+          card.innerHTML = `
+            <div class="flex items-center justify-between gap-2">
+              <!-- home -->
+              <div class="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
+                <span class="text-[.75rem] font-semibold whitespace-nowrap overflow-hidden text-ellipsis text-right">${homeShort}</span>
+                ${miniLogoHtml(homeName)}
+              </div>
+              <!-- score / time -->
+              <div class="flex flex-col items-center flex-shrink-0 min-w-[52px]">
+                ${scoreDisplay(match)}
+                <div class="font-mono text-[.44rem] mt-0.5 ${si.cls} ${isLive ? 'live-dot' : ''}">${isLive ? si.label : (match.status === 'FINISHED' ? 'Finale' : timeLabel || si.label)}</div>
+              </div>
+              <!-- away -->
+              <div class="flex items-center gap-1.5 min-w-0 flex-1 justify-start">
+                ${miniLogoHtml(awayName)}
+                <span class="text-[.75rem] font-semibold whitespace-nowrap overflow-hidden text-ellipsis">${awayShort}</span>
+              </div>
+            </div>`;
+
+          el.appendChild(card);
+        });
+      });
+    }
+
+    // ── FETCH STANDINGS ────────────────────────────────────────────────────────────
     async function fetchStandings() {
-      const btn = document.getElementById('btn-refresh');
       const badge = document.getElementById('api-badge');
-      btn.innerHTML = '<span class="spin">⟳</span> aggiorna'; btn.disabled = true;
       badge.textContent = '● loading…';
       badge.className = 'font-mono text-[.58rem] tracking-[.1em] border rounded px-2 py-0.5 border-yellow/30 text-yellow transition-all duration-300';
       try {
-        const res = await fetch(API_URL);
+        const res = await fetch(API_STANDINGS);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const table = data.standings.find(s => s.type === 'TOTAL').table;
@@ -562,7 +793,8 @@
         document.getElementById('last-updated').textContent = `agg. ${now}`;
         badge.textContent = '● live';
         badge.className = 'font-mono text-[.58rem] tracking-[.1em] border rounded px-2 py-0.5 border-neon/30 text-neon transition-all duration-300';
-        renderAll(); showToast('✓ classifica aggiornata', 'neon');
+        renderAll();
+        return giornata;
       } catch (err) {
         console.error(err);
         badge.textContent = '● errore';
@@ -572,9 +804,38 @@
           document.getElementById('col-pred').innerHTML = `<div class="text-center px-4 py-6"><p class="font-mono text-[.58rem] text-text3 tracking-wide">In attesa dei dati…</p></div>`;
         }
         showToast('✗ ' + err.message, 'red');
-      } finally {
-        btn.innerHTML = '⟳ aggiorna'; btn.disabled = false;
+        return null;
       }
+    }
+
+    // ── FETCH MATCHES ──────────────────────────────────────────────────────────────
+    async function fetchMatches(matchday) {
+      try {
+        const url = matchday ? `${API_MATCHES}?matchday=${matchday}` : API_MATCHES;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status} (partite)`);
+        const data = await res.json();
+        matchesData = data.matches ?? [];
+        document.getElementById('loading-matches').classList.add('hidden');
+        document.getElementById('col-matches').classList.remove('hidden');
+        const now = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+        document.getElementById('matches-updated').textContent = `agg. ${now}`;
+        renderMatches();
+      } catch (err) {
+        console.error(err);
+        document.getElementById('loading-matches').innerHTML = `<div class="text-center px-4 py-6"><div class="text-yellow text-2xl mb-2">⚠</div><p class="font-mono text-[.58rem] text-text3 tracking-wide leading-loose">Partite non disponibili.<br/>Controlla l'API e riprova.</p></div>`;
+        showToast('✗ partite: ' + err.message, 'yellow');
+      }
+    }
+
+    // ── FETCH ALL ──────────────────────────────────────────────────────────────────
+    async function fetchAll() {
+      const btn = document.getElementById('btn-refresh');
+      btn.innerHTML = '<span class="spin">⟳</span> aggiorna'; btn.disabled = true;
+      const giornata = await fetchStandings();
+      await fetchMatches(giornata);
+      btn.innerHTML = '⟳ aggiorna'; btn.disabled = false;
+      showToast('✓ dati aggiornati', 'neon');
     }
 
     // ── SWITCH PLAYER ──────────────────────────────────────────────────────────────
@@ -641,7 +902,7 @@
       countdownTimer = setInterval(() => {
         secondsLeft--;
         updateCountdownUI();
-        if (secondsLeft <= 0) { fetchStandings(); secondsLeft = AUTO_INTERVAL; }
+        if (secondsLeft <= 0) { fetchAll(); secondsLeft = AUTO_INTERVAL; }
       }, 1000);
     }
 
@@ -659,7 +920,7 @@
 
     // ── INIT ───────────────────────────────────────────────────────────────────────
     switchPlayer(0);
-    fetchStandings();
+    fetchAll();
   </script>
 </body>
 

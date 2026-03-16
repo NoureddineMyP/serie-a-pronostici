@@ -7,7 +7,7 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Methods', 'GET');
 
     const API_TOKEN = process.env.FOOTBALL_API_TOKEN;
-    const SEASON = 2024;
+    const SEASON = 2025;
     const LEAGUE = 'SA';
     const FROM_MATCHDAY = 10;
 

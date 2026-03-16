@@ -250,6 +250,71 @@
       font-size: .6rem;
       font-family: 'JetBrains Mono', monospace;
     }
+
+    /* ── EXACT MATCH HIGHLIGHT ── */
+    .exact-match {
+      background: rgba(0, 255, 136, 0.04) !important;
+      border-left-color: #00ff88 !important;
+    }
+
+    .exact-match:hover {
+      background: rgba(0, 255, 136, 0.08) !important;
+    }
+
+    .exact-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .5rem;
+      font-weight: 700;
+      color: #00ff88;
+      background: rgba(0, 255, 136, .12);
+      border: 1px solid rgba(0, 255, 136, .25);
+      border-radius: 3px;
+      padding: 0 3px;
+      margin-left: 4px;
+      letter-spacing: 0;
+      flex-shrink: 0;
+    }
+
+    /* ── SCORE HISTORY CHART ── */
+    .chart-bar-wrap {
+      position: relative;
+      height: 60px;
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+    }
+
+    .chart-bar {
+      flex: 1;
+      border-radius: 3px 3px 0 0;
+      transition: height .35s cubic-bezier(.4, 0, .2, 1), opacity .2s;
+      min-width: 8px;
+      cursor: default;
+      position: relative;
+    }
+
+    .chart-bar:hover .chart-tooltip {
+      opacity: 1;
+      transform: translateY(-4px);
+    }
+
+    .chart-tooltip {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%) translateY(0);
+      background: #13161e;
+      border: 1px solid #252836;
+      border-radius: 4px;
+      padding: 3px 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .48rem;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .15s, transform .15s;
+      z-index: 10;
+    }
   </style>
 </head>
 
@@ -265,7 +330,7 @@
     <div class="flex items-center justify-center gap-2 flex-wrap">
       <span
         class="font-mono text-[.58rem] tracking-[.14em] uppercase text-neon bg-neon/10 border border-neon/20 rounded px-2 py-0.5">⚽
-        2024/25</span>
+        2025/26</span>
       <span id="giornata-label"
         class="font-mono text-[.58rem] tracking-[.1em] text-text2 border border-border rounded px-2 py-0.5">Giornata
         —</span>
@@ -320,6 +385,28 @@
         <span id="sb-exact" class="font-bold text-[.95rem] text-yellow">—</span>
         <span class="text-[.5rem] tracking-[.08em] uppercase text-text3">esatte</span>
       </div>
+    </div>
+  </div>
+
+
+  <!-- SCORE HISTORY -->
+  <div class="relative z-10 border-b border-border bg-surface/30 px-6 py-3">
+    <div class="max-w-[1280px] mx-auto">
+      <div class="flex items-center justify-between mb-2">
+        <span class="font-mono text-[.56rem] tracking-[.1em] uppercase text-text2">Storico punteggio per giornata</span>
+        <div class="flex items-center gap-3">
+          <span class="flex items-center gap-1 font-mono text-[.5rem] text-neon"><span
+              class="w-2 h-2 rounded-sm inline-block" style="background:#00ff88"></span>Ana</span>
+          <span class="flex items-center gap-1 font-mono text-[.5rem] text-purple"><span
+              class="w-2 h-2 rounded-sm inline-block" style="background:#b06cff"></span>Adil</span>
+        </div>
+      </div>
+      <div id="score-chart" class="chart-bar-wrap">
+        <!-- bars injected by JS -->
+        <div class="w-full text-center font-mono text-[.52rem] text-text3 py-2">Nessuno storico salvato — il grafico si
+          aggiorna ad ogni giornata</div>
+      </div>
+      <div class="flex justify-between mt-1" id="score-chart-labels"></div>
     </div>
   </div>
 
@@ -506,6 +593,61 @@
     let real = [], preds = [[], []], current = 0, apiLoaded = false;
     let matchesData = [], activeFilter = 'all';
 
+    // ── SCORE HISTORY (localStorage) ──────────────────────────────────────────────
+    const HISTORY_KEY = 'serieA_score_history_v1';
+    function loadHistory() {
+      try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || {}; } catch { return {}; }
+    }
+    function saveHistory(giornata, scores) {
+      const h = loadHistory();
+      h[giornata] = scores;
+      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch { }
+    }
+    function renderChart() {
+      const chart = document.getElementById('score-chart');
+      const labels = document.getElementById('score-chart-labels');
+      if (!chart) return;
+      const h = loadHistory();
+      const keys = Object.keys(h).map(Number).sort((a, b) => a - b);
+      if (keys.length === 0) return;
+      const maxPts = 60;
+      chart.innerHTML = '';
+      labels.innerHTML = '';
+      keys.forEach(g => {
+        const scores = h[g];
+        const wrap = document.createElement('div');
+        wrap.className = 'flex flex-col items-center gap-0.5 flex-1';
+        // two bars side by side per giornata
+        const barWrap = document.createElement('div');
+        barWrap.style.cssText = 'display:flex;align-items:flex-end;gap:1px;height:60px;width:100%';
+        [0, 1].forEach(pi => {
+          const pts = scores[pi] ?? 0;
+          const pct = Math.round((pts / maxPts) * 100);
+          const color = pi === 0 ? '#00ff88' : '#b06cff';
+          const bar = document.createElement('div');
+          bar.style.cssText = `flex:1;height:${Math.max(pct, 3)}%;background:${color};opacity:0.75;border-radius:2px 2px 0 0;position:relative;cursor:default;`;
+          bar.title = `G${g} ${PLAYER_LABELS[pi]}: ${pts}pt`;
+          // tooltip
+          const tip = document.createElement('div');
+          tip.className = 'chart-tooltip';
+          tip.style.color = color;
+          tip.textContent = `${pts}pt`;
+          bar.appendChild(tip);
+          bar.addEventListener('mouseenter', () => { tip.style.opacity = '1'; tip.style.transform = 'translateX(-50%) translateY(-4px)'; });
+          bar.addEventListener('mouseleave', () => { tip.style.opacity = '0'; tip.style.transform = 'translateX(-50%) translateY(0)'; });
+          barWrap.appendChild(bar);
+        });
+        wrap.appendChild(barWrap);
+        chart.appendChild(wrap);
+        // label
+        const lbl = document.createElement('span');
+        lbl.className = 'font-mono text-text3 flex-1 text-center';
+        lbl.style.fontSize = '.42rem';
+        lbl.textContent = `G${g}`;
+        labels.appendChild(lbl);
+      });
+    }
+
     // ── HELPERS ────────────────────────────────────────────────────────────────────
     function zone(p) {
       if (p <= 4) return 'cl'; if (p === 5) return 'el';
@@ -567,18 +709,27 @@
       el.innerHTML = ''; let dragSrc = null;
       pred.forEach((t, i) => {
         const pos = i + 1, rpos = rpm[t.name], diff = rpos !== undefined ? (rpos - pos) : 99, s = scoreRow(pos, rpos);
+        const isExact = s.diff === 0;
         const row = document.createElement('div');
-        row.className = `team-row ${zClass(pos)} grid items-center px-4 py-2 border-b border-white/[0.03] hover:bg-surface2 transition-colors duration-150`;
-        row.style.cssText = `grid-template-columns:44px 1fr 38px 52px;animation-delay:${i * 10}ms`;
+        row.className = `team-row ${zClass(pos)} ${isExact ? 'exact-match' : ''} grid items-center px-4 py-2 border-b border-white/[0.03] hover:bg-surface2 transition-colors duration-150`;
+        row.style.cssText = `grid-template-columns:48px 1fr 38px 52px;animation-delay:${i * 10}ms`;
         row.draggable = true; row.dataset.idx = i;
+        // delta inline on same line as position number
+        const di = diff === 99
+          ? `<span class="font-mono text-[.5rem] text-text3 ml-1">?</span>`
+          : diff === 0 ? ''
+            : diff > 0
+              ? `<span class="du font-mono text-[.5rem] font-bold ml-1">▲${diff}</span>`
+              : `<span class="dd font-mono text-[.5rem] font-bold ml-1">▼${Math.abs(diff)}</span>`;
         row.innerHTML = `
-          <div class="flex flex-col items-center leading-none">
+          <div class="flex items-center leading-none gap-0.5">
             <span class="font-condensed font-bold text-[1.05rem] ${pos <= 3 ? 'text-text1' : 'text-text2'}">${pos}</span>
-            ${deltaHtml(diff)}
+            ${di}
           </div>
           <div class="flex items-center gap-2 min-w-0">
             ${logoHtml(t)}
             <span class="text-[.82rem] font-semibold whitespace-nowrap overflow-hidden text-ellipsis">${t.shortName || t.name}</span>
+            ${isExact ? '<span class="exact-badge">✓</span>' : ''}
           </div>
           <div class="font-condensed font-bold text-[1rem] text-center">${t.pts ?? '—'}</div>
           ${rowScoreHtml(s)}`;
@@ -625,7 +776,7 @@
       document.getElementById('sb-zone').textContent = s.zone_t + 'pt';
       document.getElementById('sb-exact').textContent = s.exact;
     }
-    function renderAll() { renderPred(); renderReal(); renderScore(); }
+    function renderAll() { renderPred(); renderReal(); renderScore(); renderChart(); }
 
     // ── MATCHES HELPERS ────────────────────────────────────────────────────────────
     function matchStatusInfo(status) {
@@ -834,6 +985,12 @@
       btn.innerHTML = '<span class="spin">⟳</span> aggiorna'; btn.disabled = true;
       const giornata = await fetchStandings();
       await fetchMatches(giornata);
+      // save current scores to history for this giornata
+      if (apiLoaded && giornata && giornata !== '—') {
+        const scores = PLAYER_LABELS.map((_, pi) => calcTotal(preds[pi]).total);
+        saveHistory(giornata, scores);
+        renderChart();
+      }
       btn.innerHTML = '⟳ aggiorna'; btn.disabled = false;
       showToast('✓ dati aggiornati', 'neon');
     }

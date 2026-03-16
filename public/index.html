@@ -16,7 +16,7 @@
           colors: {
             bg: '#0d0f14', surface: '#13161e', surface2: '#1a1e2a', border: '#252836',
             neon: '#00ff88', yellow: '#ffd600', orange: '#ff7b00', red: '#ff2d55', purple: '#b06cff',
-            text1: '#f0f2ff', text2: '#7a8299', text3: '#3a4055',
+            text1: '#f0f2ff', text2: '#9aa3bb', text3: '#5c6680',
           },
           fontFamily: {
             barlow: ['Barlow', 'sans-serif'],
@@ -125,7 +125,7 @@
     }
 
     .rs-0 {
-      color: #3a4055
+      color: #545e7a
     }
 
     .du {
@@ -246,7 +246,7 @@
     }
 
     .match-sep {
-      color: #3a4055;
+      color: #545e7a;
       font-size: .6rem;
       font-family: 'JetBrains Mono', monospace;
     }
@@ -340,9 +340,9 @@
       <div class="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
         <span id="col-pred-title"
           class="font-condensed font-bold tracking-[.12em] uppercase text-[.82rem] text-neon">Previsione Ana</span>
-        <span class="font-mono text-[.52rem] text-text3">trascina ⠿</span>
+        <span class="font-mono text-[.56rem] text-text2">trascina ⠿</span>
       </div>
-      <div class="grid px-4 py-1.5 font-mono text-[.52rem] tracking-[.1em] uppercase text-text3 border-b border-border"
+      <div class="grid px-4 py-1.5 font-mono text-[.6rem] tracking-[.08em] uppercase text-text2 border-b border-border"
         style="grid-template-columns:44px 1fr 38px 52px">
         <div>#/Δ</div>
         <div>Squadra</div>
@@ -365,9 +365,9 @@
       <div class="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
         <span class="font-condensed font-bold tracking-[.12em] uppercase text-[.82rem] text-text2">Classifica
           Reale</span>
-        <span id="last-updated" class="font-mono text-[.48rem] text-text3"></span>
+        <span id="last-updated" class="font-mono text-[.52rem] text-text2"></span>
       </div>
-      <div class="grid px-4 py-1.5 font-mono text-[.52rem] tracking-[.1em] uppercase text-text3 border-b border-border"
+      <div class="grid px-4 py-1.5 font-mono text-[.6rem] tracking-[.08em] uppercase text-text2 border-b border-border"
         style="grid-template-columns:36px 1fr 38px 34px">
         <div>#</div>
         <div>Squadra</div>
@@ -389,18 +389,18 @@
       <div class="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
         <span class="font-condensed font-bold tracking-[.12em] uppercase text-[.82rem] text-yellow">Partite
           Giornata</span>
-        <span id="matches-updated" class="font-mono text-[.48rem] text-text3"></span>
+        <span id="matches-updated" class="font-mono text-[.52rem] text-text2"></span>
       </div>
       <!-- filter tabs -->
       <div class="flex items-center gap-1 px-4 py-2 border-b border-border">
         <button onclick="filterMatches('all')" id="mf-all"
           class="match-filter-btn font-mono text-[.5rem] tracking-[.08em] uppercase px-2 py-0.5 rounded border transition-all duration-150 cursor-pointer border-yellow/30 bg-yellow/10 text-yellow">Tutte</button>
         <button onclick="filterMatches('live')" id="mf-live"
-          class="match-filter-btn font-mono text-[.5rem] tracking-[.08em] uppercase px-2 py-0.5 rounded border transition-all duration-150 cursor-pointer border-border bg-transparent text-text3 hover:text-text2">Live</button>
+          class="match-filter-btn font-mono text-[.5rem] tracking-[.08em] uppercase px-2 py-0.5 rounded border transition-all duration-150 cursor-pointer border-border bg-transparent text-text2 hover:text-text1">Live</button>
         <button onclick="filterMatches('fin')" id="mf-fin"
-          class="match-filter-btn font-mono text-[.5rem] tracking-[.08em] uppercase px-2 py-0.5 rounded border transition-all duration-150 cursor-pointer border-border bg-transparent text-text3 hover:text-text2">Finali</button>
+          class="match-filter-btn font-mono text-[.5rem] tracking-[.08em] uppercase px-2 py-0.5 rounded border transition-all duration-150 cursor-pointer border-border bg-transparent text-text2 hover:text-text1">Finali</button>
         <button onclick="filterMatches('sched')" id="mf-sched"
-          class="match-filter-btn font-mono text-[.5rem] tracking-[.08em] uppercase px-2 py-0.5 rounded border transition-all duration-150 cursor-pointer border-border bg-transparent text-text3 hover:text-text2">Da
+          class="match-filter-btn font-mono text-[.5rem] tracking-[.08em] uppercase px-2 py-0.5 rounded border transition-all duration-150 cursor-pointer border-border bg-transparent text-text2 hover:text-text1">Da
           giocare</button>
       </div>
       <div id="loading-matches" class="px-4 py-8 flex flex-col items-center gap-3">
@@ -531,11 +531,11 @@
     }
     function zClass(pos) { const z = zone(pos); return z ? `zone-${z}` : 'no-zone'; }
     function deltaHtml(diff) {
-      if (diff === 99) return `<span class="font-mono text-[.46rem] font-bold mt-px text-text3">?</span>`;
-      if (diff === 0) return `<span class="ds font-mono text-[.46rem] font-bold mt-px">—</span>`;
+      if (diff === 99) return `<span class="font-mono text-[.54rem] font-bold mt-px text-text3">?</span>`;
+      if (diff === 0) return `<span class="ds font-mono text-[.54rem] font-bold mt-px">—</span>`;
       return diff > 0
-        ? `<span class="du font-mono text-[.46rem] font-bold mt-px">▲${diff}</span>`
-        : `<span class="dd font-mono text-[.46rem] font-bold mt-px">▼${Math.abs(diff)}</span>`;
+        ? `<span class="du font-mono text-[.54rem] font-bold mt-px">▲${diff}</span>`
+        : `<span class="dd font-mono text-[.54rem] font-bold mt-px">▼${Math.abs(diff)}</span>`;
     }
     function rowScoreHtml(s) {
       let cls, txt;
@@ -688,7 +688,7 @@
         if (!el) return;
         const isActive = key === f;
         const activeColor = key === 'live' ? 'text-neon border-neon/30 bg-neon/10' : 'text-yellow border-yellow/30 bg-yellow/10';
-        el.className = `match-filter-btn font-mono text-[.5rem] tracking-[.08em] uppercase px-2 py-0.5 rounded border transition-all duration-150 cursor-pointer ${isActive ? activeColor : 'border-border bg-transparent text-text3 hover:text-text2'}`;
+        el.className = `match-filter-btn font-mono text-[.5rem] tracking-[.08em] uppercase px-2 py-0.5 rounded border transition-all duration-150 cursor-pointer ${isActive ? activeColor : 'border-border bg-transparent text-text2 hover:text-text1'}`;
       });
       renderMatches();
     }
@@ -730,7 +730,7 @@
         // date separator
         const sep = document.createElement('div');
         sep.className = 'px-4 py-1.5 border-b border-border';
-        sep.innerHTML = `<span class="font-mono text-[.48rem] tracking-[.12em] uppercase text-text3">${dateLabel}</span>`;
+        sep.innerHTML = `<span class="font-mono text-[.6rem] tracking-[.1em] uppercase text-text2">${dateLabel}</span>`;
         el.appendChild(sep);
 
         matches.forEach((match, mi) => {
@@ -756,7 +756,7 @@
               <!-- score / time -->
               <div class="flex flex-col items-center flex-shrink-0 min-w-[52px]">
                 ${scoreDisplay(match)}
-                <div class="font-mono text-[.44rem] mt-0.5 ${si.cls} ${isLive ? 'live-dot' : ''}">${isLive ? si.label : (match.status === 'FINISHED' ? 'Finale' : timeLabel || si.label)}</div>
+                <div class="font-mono text-[.52rem] mt-0.5 ${si.cls} ${isLive ? 'live-dot' : ''}">${isLive ? si.label : (match.status === 'FINISHED' ? 'Finale' : timeLabel || si.label)}</div>
               </div>
               <!-- away -->
               <div class="flex items-center gap-1.5 min-w-0 flex-1 justify-start">

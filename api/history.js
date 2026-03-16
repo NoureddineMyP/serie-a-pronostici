@@ -117,8 +117,14 @@ export default async function handler(req, res) {
         const history = {};   // { [matchday]: [scoreAna, scoreAdil] }
 
         for (const md of matchdays) {
-            // Apply all matches of this matchday
-            for (const match of byMatchday[md]) {
+            const matches = byMatchday[md];
+
+            // Skip matchdays with no finished matches (future rounds)
+            const hasFinished = matches.some(m => m.status === 'FINISHED');
+            if (!hasFinished) continue;
+
+            // Apply all finished matches of this matchday
+            for (const match of matches) {
                 applyMatch(teamStats, match);
             }
 
